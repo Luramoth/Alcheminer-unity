@@ -52,4 +52,9 @@ public class InputManager : MonoBehaviour
 	{
 		return _playerControls.Player.Jump.triggered;
 	}
+
+	public bool PlayerIsSprinting()
+	{
+		return _playerControls.Player.Sprint.IsPressed();
+	}
 }

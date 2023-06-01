@@ -5,7 +5,9 @@ namespace Player
 	public class PlayerMovement : MonoBehaviour
 	{
 		[Header("Movement")]
-		public float moveSpeed;
+		private float _moveSpeed;
+		public float walkSpeed;
+		public float sprintSpeed;
 
 		public float groundDrag;
 
@@ -30,6 +32,15 @@ namespace Player
 
 		private Rigidbody _rb;
 
+		public MovementState state;
+
+		public enum MovementState
+		{
+			Walking,
+			Sprinting,
+			Air
+		}
+
 		void Start()
 		{
 			_inputManager = InputManager.Instance;
@@ -50,6 +61,7 @@ namespace Player
 
 			GetInput();
 			SpeedControl();
+			Statehandler();
 
 			if (grounded)
 				_rb.drag = groundDrag;
@@ -74,6 +86,27 @@ namespace Player
 			}
 		}
 
+		private void Statehandler()
+		{
+			// sprinting
+			if (grounded && _inputManager.PlayerIsSprinting())
+			{
+				state = MovementState.Sprinting;
+				_moveSpeed = sprintSpeed;
+			}
+			// walking
+			else if (grounded)
+			{
+				state = MovementState.Walking;
+				_moveSpeed = walkSpeed;
+			}
+			// in the air
+			else
+			{
+				state = MovementState.Air;
+			}
+		}
+
 		private void MovePlayer()
 		{
 			// calculate movement direction
@@ -81,20 +114,20 @@ namespace Player
 
 			// on the ground
 			if (grounded)
-				_rb.AddForce(_moveDirection.normalized * (moveSpeed * 10f), ForceMode.Force);
+				_rb.AddForce(_moveDirection.normalized * (_moveSpeed * 10f), ForceMode.Force);
 			
 			// in the air
 			else if (!grounded)
-				_rb.AddForce(_moveDirection.normalized * (moveSpeed * 10f * airMultiplier), ForceMode.Force);
+				_rb.AddForce(_moveDirection.normalized * (_moveSpeed * 10f * airMultiplier), ForceMode.Force);
 		}
 
 		private void SpeedControl()
 		{
 			Vector3 flatVel = new Vector3(_rb.velocity.x, 0f, _rb.velocity.z);
 
-			if (flatVel.magnitude > moveSpeed)
+			if (flatVel.magnitude > _moveSpeed)
 			{
-				Vector3 limitedVel = flatVel.normalized * moveSpeed;
+				Vector3 limitedVel = flatVel.normalized * _moveSpeed;
 				_rb.velocity = new Vector3(limitedVel.x, _rb.velocity.y, limitedVel.z);
 			}
 		}
