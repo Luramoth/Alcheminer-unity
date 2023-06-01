@@ -11,10 +11,16 @@ namespace Player
 
 		public float groundDrag;
 
+		[Header("Jumping")]
 		public float jumpForce;
 		public float jumpCooldown;
 		public float airMultiplier;
 		private bool _readyToJump = true;
+		
+		[Header("Crouching")]
+		public float crouchSpeed;
+		public float crouchYScale;
+		private float _startYScale;
 
 		[Header("Ground Check")]
 		public float playerHeight;
@@ -38,6 +44,7 @@ namespace Player
 		{
 			Walking,
 			Sprinting,
+			Crouching,
 			Air
 		}
 
@@ -47,6 +54,8 @@ namespace Player
 
 			_rb = GetComponent<Rigidbody>();
 			_rb.freezeRotation = true;
+
+			_startYScale = transform.localScale.y;
 		}
 
 		private void FixedUpdate()
@@ -84,10 +93,30 @@ namespace Player
 				
 				Invoke(nameof(ResetJump), jumpCooldown);
 			}
+			
+			// crouch
+			if (_inputManager.PlayerIsCrouchingThisFrame())
+			{
+				transform.localScale = new Vector3(transform.localScale.x, crouchYScale, transform.localScale.z);
+				
+				_rb.AddForce(Vector3.down * 5f, ForceMode.Impulse);
+			}
+			// stop crouch
+			if (_inputManager.PlayerisNotCrouching())
+			{
+				transform.localScale = new Vector3(transform.localScale.x, _startYScale, transform.localScale.z);
+			}
 		}
 
 		private void Statehandler()
 		{
+			// crouching
+			if (_inputManager.PlayerIsCrouching())
+			{
+				state = MovementState.Crouching;
+				_moveSpeed = crouchSpeed;
+			}
+			
 			// sprinting
 			if (grounded && _inputManager.PlayerIsSprinting())
 			{
