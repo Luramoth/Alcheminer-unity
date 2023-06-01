@@ -27,6 +27,11 @@ namespace Player
 
 		public LayerMask whatIsGround;
 		public bool grounded;
+		
+		[Header("Slope Handling")]
+		public float maxSlopeAngle;
+		private RaycastHit _slopeHit;
+		private bool _exitingSlope;
 
 		public Transform orientation;
 
@@ -66,11 +71,11 @@ namespace Player
 		void Update()
 		{
 			// ground check
-			grounded = Physics.Raycast(transform.position, Vector3.down, 1);
+			grounded = Physics.Raycast(transform.position, Vector3.down, 1.3f);
 
 			GetInput();
 			SpeedControl();
-			Statehandler();
+			StateHandler();
 
 			if (grounded)
 				_rb.drag = groundDrag;
@@ -108,7 +113,7 @@ namespace Player
 			}
 		}
 
-		private void Statehandler()
+		private void StateHandler()
 		{
 			// crouching
 			if (_inputManager.PlayerIsCrouching())
@@ -141,6 +146,15 @@ namespace Player
 			// calculate movement direction
 			_moveDirection = orientation.forward * _verticalInput + orientation.right * _horizontalInput;
 
+			// on slope
+			if (OnSlope() && !_exitingSlope)
+			{
+				_rb.AddForce(GetSlopeMoveDirection() * (_moveSpeed * 20f), ForceMode.Force);
+				
+				if ( _rb.velocity.y > 0)
+					_rb.AddForce(Vector3.down * 80f, ForceMode.Force);
+			}
+			
 			// on the ground
 			if (grounded)
 				_rb.AddForce(_moveDirection.normalized * (_moveSpeed * 10f), ForceMode.Force);
@@ -148,21 +162,34 @@ namespace Player
 			// in the air
 			else if (!grounded)
 				_rb.AddForce(_moveDirection.normalized * (_moveSpeed * 10f * airMultiplier), ForceMode.Force);
+			
+			// turn gravity off on slope
+			_rb.useGravity = !OnSlope();
 		}
 
 		private void SpeedControl()
 		{
-			Vector3 flatVel = new Vector3(_rb.velocity.x, 0f, _rb.velocity.z);
-
-			if (flatVel.magnitude > _moveSpeed)
+			if (OnSlope() && !_exitingSlope)
 			{
-				Vector3 limitedVel = flatVel.normalized * _moveSpeed;
-				_rb.velocity = new Vector3(limitedVel.x, _rb.velocity.y, limitedVel.z);
+				if (_rb.velocity.magnitude > _moveSpeed)
+					_rb.velocity = _rb.velocity.normalized * _moveSpeed;
+			}
+			else
+			{
+				Vector3 flatVel = new Vector3(_rb.velocity.x, 0f, _rb.velocity.z);
+
+				if (flatVel.magnitude > _moveSpeed)
+				{
+					Vector3 limitedVel = flatVel.normalized * _moveSpeed;
+					_rb.velocity = new Vector3(limitedVel.x, _rb.velocity.y, limitedVel.z);
+				}	
 			}
 		}
 
 		private void Jump()
 		{
+			_exitingSlope = true;
+			
 			// reset y velocity
 			_rb.velocity = new Vector3(_rb.velocity.x, 0f, _rb.velocity.z);
 			
@@ -172,6 +199,24 @@ namespace Player
 		private void ResetJump()
 		{
 			_readyToJump = true;
+
+			_exitingSlope = false;
+		}
+
+		private bool OnSlope()
+		{
+			if (Physics.Raycast(transform.position, Vector3.down, out _slopeHit, 1.5f))
+			{
+				float angle = Vector3.Angle(Vector3.up, _slopeHit.normal);
+				return angle < maxSlopeAngle && angle != 0;
+			}
+
+			return false;
+		}
+
+		private Vector3 GetSlopeMoveDirection()
+		{
+			return Vector3.ProjectOnPlane(_moveDirection, _slopeHit.normal).normalized;
 		}
 	}
 }
